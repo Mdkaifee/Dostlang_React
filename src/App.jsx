@@ -1,132 +1,195 @@
 import { useMemo, useState } from 'react'
 
-const starterCode = `yeh_ha n = 10
-yeh_ha a = 0
-yeh_ha b = 1
-yeh_ha next = 0
-yeh_ha i = 0
+const playgroundSample = `hi bhai
+  bol bhai "Hello World";
 
-jabtak i < n {
-  dost_bol a
-  next = a + b
-  a = b
-  b = next
-  i = i + 1
-}`
+  bhai ye hai a = 3;
+  bhai ye hai b = 0;
 
-const docs = [
-  {
-    title: 'General',
-    body: 'DostLang is a lightweight toy language inspired by conversational Hindi keywords. Programs are simple and expressive.',
-    code: `yeh_ha msg = "DostLang rocks"
-dost_bol msg`,
-  },
-  {
-    title: 'Variables',
-    body: 'Declare variables with yeh_ha. Re-assign later with plain = syntax.',
-    code: `yeh_ha a = 10
-yeh_ha name = "Kaifee"
-a = a + 5
-dost_bol name`,
-  },
-  {
-    title: 'Conditionals',
-    body: 'Use agar / warna for branching. Conditions support comparison operators.',
-    code: `yeh_ha marks = 82
-agar marks >= 80 {
-  dost_bol "Top"
-} warna {
-  dost_bol "Keep going"
-}`,
-  },
-  {
-    title: 'Loops',
-    body: 'Use jabtak to repeat until condition becomes false.',
-    code: `yeh_ha i = 1
-jabtak i <= 5 {
-  dost_bol i
-  i = i + 1
-}`,
-  },
-]
+  jab tak bhai (b < 5) {
+    bol bhai b;
 
-function evaluateExpression(expr, env) {
-  const normalized = expr
-    .replace(/\bsach\b/g, 'true')
-    .replace(/\bjhoot\b/g, 'false')
+    agar bhai (b == a) {
+      bol bhai "b is equal to a";
+    } nahi to bhai (b == 0) {
+      bol bhai "b is equal to zero";
+    }
 
-  const keys = Object.keys(env)
-  const values = Object.values(env)
-  try {
-    // Intended as a playground helper, not a secure sandbox.
-    return new Function(...keys, `return (${normalized})`)(...values)
-  } catch {
-    return normalized
+    b += 1;
   }
+
+bye bhai`
+
+const docBlocks = {
+  general: `This will be ignored
+
+hi bhai
+  // Write code here
+bye bhai
+
+This too`,
+  variables: `hi bhai
+  bhai ye hai a = 10;
+  bhai ye hai b = "two";
+  bhai ye hai c = 15;
+  a = a + 1;
+  b = 21;
+  c *= 2;
+bye bhai`,
+  types: `hi bhai
+  bhai ye hai a = 10;
+  bhai ye hai b = 10 + (15*20);
+  bhai ye hai c = "two";
+  bhai ye hai d = 'ok';
+  bhai ye hai e = nalla;
+  bhai ye hai f = sahi;
+  bhai ye hai g = galat;
+bye bhai`,
+  builtins: `hi bhai
+  bol bhai "Hello World";
+  bhai ye hai a = 10;
+  {
+    bhai ye hai b = 20;
+    bol bhai a + b;
+  }
+  bol bhai 5, 'ok', nalla , sahi , galat;
+bye bhai`,
+  conditionals: `hi bhai
+  bhai ye hai a = 10;
+  agar bhai (a < 20) {
+    bol bhai "a is less than 20";
+  } nahi to bhai ( a < 25 ) {
+    bol bhai "a is less than 25";
+  } warna bhai {
+    bol bhai "a is greater than or equal to 25";
+  }
+bye bhai`,
+  loops: `hi bhai
+  bhai ye hai a = 0;
+  jab tak bhai (a < 10) {
+    a += 1;
+    agar bhai (a == 5) {
+      bol bhai "andar se bol bhai ", a;
+      agla dekh bhai;
+    }
+    agar bhai (a == 6) {
+      bas kar bhai;
+    }
+    bol bhai a;
+  }
+  bol bhai "done";
+bye bhai`,
 }
 
-function runDost(code) {
-  const env = {}
-  const output = []
+const keywordSet = new Set([
+  'hi',
+  'bhai',
+  'bol',
+  'ye',
+  'hai',
+  'jab',
+  'tak',
+  'agar',
+  'nahi',
+  'to',
+  'warna',
+  'bye',
+  'nalla',
+  'sahi',
+  'galat',
+  'bas',
+  'kar',
+  'agla',
+  'dekh',
+])
 
-  for (const raw of code.split('\n')) {
-    const line = raw.trim()
-    if (!line || line.startsWith('#') || line.endsWith('{') || line === '}') {
-      continue
-    }
+function InlineTag({ children }) {
+  return <code className="inline-tag">{children}</code>
+}
 
-    const declare = line.match(/^yeh_ha\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/)
-    if (declare) {
-      env[declare[1]] = evaluateExpression(declare[2], env)
-      continue
-    }
+function highlightLine(line) {
+  const commentIdx = line.indexOf('//')
+  const codePart = commentIdx >= 0 ? line.slice(0, commentIdx) : line
+  const commentPart = commentIdx >= 0 ? line.slice(commentIdx) : ''
+  const tokenRegex = /("[^"]*"|'[^']*'|==|!=|<=|>=|\+=|-=|\*=|\/=|[{}();,]|[+\-*/=<>]|\b[a-zA-Z_][a-zA-Z0-9_]*\b|\d+)/g
+  const pieces = codePart.split(tokenRegex)
 
-    const assign = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/)
-    if (assign) {
-      env[assign[1]] = evaluateExpression(assign[2], env)
-      continue
-    }
+  return (
+    <>
+      {pieces.map((piece, idx) => {
+        if (!piece) return null
 
-    const print = line.match(/^dost_bol\s+(.+)$/)
-    if (print) {
-      output.push(String(evaluateExpression(print[1], env)))
-    }
-  }
+        let cls = 'tok-plain'
+        if (/^"[^"]*"$|^'[^']*'$/.test(piece)) {
+          cls = 'tok-string'
+        } else if (/^\d+$/.test(piece)) {
+          cls = 'tok-number'
+        } else if (/^(==|!=|<=|>=|\+=|-=|\*=|\/=|[+\-*/=<>])$/.test(piece)) {
+          cls = 'tok-op'
+        } else if (/^[{}();,]$/.test(piece)) {
+          cls = 'tok-punc'
+        } else if (keywordSet.has(piece)) {
+          cls = 'tok-key'
+        }
 
-  return output
+        return (
+          <span key={`${piece}-${idx}`} className={cls}>
+            {piece}
+          </span>
+        )
+      })}
+      {commentPart ? <span className="tok-comment">{commentPart}</span> : null}
+    </>
+  )
+}
+
+function CodeLines({ code, withNumbers = false }) {
+  const lines = code.split('\n')
+
+  return (
+    <div className={`code-grid ${withNumbers ? 'with-lines' : ''}`}>
+      {withNumbers ? (
+        <pre className="line-column" aria-hidden="true">
+          {lines.map((_, index) => (
+            <span key={`ln-${index + 1}`}>{index + 1}</span>
+          ))}
+        </pre>
+      ) : null}
+      <pre className="code-panel">
+        {lines.map((line, index) => (
+          <div className="code-row" key={`line-${index}`}>
+            {highlightLine(line)}
+          </div>
+        ))}
+      </pre>
+    </div>
+  )
 }
 
 function App() {
-  const [code, setCode] = useState(starterCode)
-  const [output, setOutput] = useState([])
+  const [playgroundCode, setPlaygroundCode] = useState(playgroundSample)
 
-  const lineNumbers = useMemo(() => {
-    const count = Math.max(code.split('\n').length, 10)
-    return Array.from({ length: count }, (_, idx) => idx + 1)
-  }, [code])
+  const lineCountMemo = useMemo(() => playgroundCode.split('\n').length, [playgroundCode])
 
-  const onRun = () => setOutput(runDost(code))
-  const onClear = () => {
-    setCode('')
-    setOutput([])
-  }
-
+  const onClear = () => setPlaygroundCode('')
+  const onRun = () => setPlaygroundCode((prev) => prev)
   const onCopy = async () => {
     try {
-      await navigator.clipboard.writeText(code)
+      await navigator.clipboard.writeText(playgroundCode)
     } catch {
-      // Ignore clipboard errors in unsupported environments.
+      // Clipboard is optional.
     }
   }
+
+  const hasCode = lineCountMemo > 0
 
   return (
     <main className="page-shell">
       <section className="hero-section">
         <div className="hero-inner">
-          <img className="hero-glyph" src="/dostlang.png" alt="DostLang glyph" />
           <h1 className="hero-title">DOSTLANG</h1>
           <p className="hero-subtitle">A toy programming language written in Python</p>
-          <code className="install-pill">npm i -g @mdkaifee/dostlang</code>
+          <code className="install-pill">`npm i -g @mdkaifee/dostlang`</code>
 
           <div className="hero-actions">
             <a className="btn btn-primary" href="#playground">
@@ -144,17 +207,17 @@ function App() {
 
           <p className="made-by">
             Made by{' '}
-            <a href="https://mdkaifee-software-developer.onrender.com/" target="_blank" rel="noreferrer">
-              Md Kaifee
+            <a href="https://github.com/Mdkaifee" target="_blank" rel="noreferrer">
+              @mdkaifee
             </a>
           </p>
         </div>
       </section>
 
       <section className="playground-section" id="playground">
-        <div className="section-header">
+        <div className="section-head">
           <h2>Playground</h2>
-          <div className="inline-actions">
+          <div className="section-actions">
             <button className="btn btn-primary" onClick={onRun} type="button">
               Run
             </button>
@@ -164,51 +227,85 @@ function App() {
           </div>
         </div>
 
-        <div className="editor-shell">
-          <button className="copy-btn" type="button" onClick={onCopy} aria-label="Copy code">
+        <div className="playground-editor-wrap">
+          <button className="copy-btn" onClick={onCopy} type="button" aria-label="Copy code">
             ⧉
           </button>
-          <div className="editor-grid">
-            <pre className="line-nums" aria-hidden="true">
-              {lineNumbers.map((num) => (
-                <span key={num}>{num}</span>
-              ))}
-            </pre>
-            <textarea
-              className="editor-input"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              spellCheck={false}
-            />
-          </div>
-        </div>
-
-        <div className="output-shell">
-          <h3>Output</h3>
-          <pre>{output.length ? output.join('\n') : 'Run the code to see output...'}</pre>
+          {hasCode ? <CodeLines code={playgroundCode} withNumbers /> : <div className="empty-code">No code</div>}
         </div>
       </section>
 
       <section className="docs-section">
         <h2>Documentation</h2>
         <p className="docs-intro">
-          DostLang is a dynamically-typed toy programming language built for fun, learning, and rapid experimentation.
+          Bhailang is dynamically typed toy programming language, based on an inside joke, written in Typescript.
         </p>
 
         <div className="docs-grid">
-          {docs.map((item) => (
-            <article className="doc-card" key={item.title}>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-              <pre>
-                <code>{item.code}</code>
-              </pre>
-            </article>
-          ))}
+          <article className="doc-card">
+            <h3>General</h3>
+            <p>
+              <InlineTag>hi bhai</InlineTag> is the entrypoint for the program and all program must end with{' '}
+              <InlineTag>bye bhai</InlineTag>. Anything outside of it will be ignored.
+            </p>
+            <CodeLines code={docBlocks.general} />
+          </article>
+
+          <article className="doc-card">
+            <h3>Variables</h3>
+            <p>
+              Variables can be declared using <InlineTag>bhai ye hai</InlineTag>.
+            </p>
+            <CodeLines code={docBlocks.variables} />
+          </article>
+
+          <article className="doc-card">
+            <h3>Types</h3>
+            <p>
+              Numbers and strings are like other languages. Null values can be denoted using <InlineTag>nalla</InlineTag>.{' '}
+              <InlineTag>sahi</InlineTag> and <InlineTag>galat</InlineTag> are the boolean values.
+            </p>
+            <CodeLines code={docBlocks.types} />
+          </article>
+
+          <article className="doc-card">
+            <h3>Built-ins</h3>
+            <p>
+              Use <InlineTag>bol bhai</InlineTag> to print anything to console.
+            </p>
+            <CodeLines code={docBlocks.builtins} />
+          </article>
+
+          <article className="doc-card">
+            <h3>Conditionals</h3>
+            <p>
+              Bhailang supports if-else-if ladder construct , <InlineTag>agar bhai</InlineTag> block will execute if condition is{' '}
+              <InlineTag>sahi</InlineTag>, otherwise one of the subsequently added <InlineTag>nahi to bhai</InlineTag> blocks will
+              execute if their respective condition is <InlineTag>sahi</InlineTag>, and the <InlineTag>warna bhai</InlineTag> block
+              will eventually execute if all of the above conditions are <InlineTag>galat</InlineTag>.
+            </p>
+            <CodeLines code={docBlocks.conditionals} />
+          </article>
+
+          <article className="doc-card">
+            <h3>Loops</h3>
+            <p>
+              Statements inside <InlineTag>jab tak bhai</InlineTag> blocks are executed as long as a specified condition evaluates to{' '}
+              <InlineTag>sahi</InlineTag>. If the condition becomes <InlineTag>galat</InlineTag>, statement within the loop stops
+              executing and control passes to the statement following the loop. Use <InlineTag>bas kar bhai</InlineTag> to break the
+              loop and <InlineTag>agla dekh bhai</InlineTag> to continue within loop.
+            </p>
+            <CodeLines code={docBlocks.loops} />
+          </article>
         </div>
       </section>
 
-      <footer className="site-footer">© 2026 Md Kaifee</footer>
+      <footer className="site-footer">
+        © 2026{' '}
+        <a href="https://mdkaifee-software-developer.onrender.com/" target="_blank" rel="noreferrer">
+          Md Kaifee
+        </a>
+      </footer>
     </main>
   )
 }
