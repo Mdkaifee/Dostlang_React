@@ -256,14 +256,18 @@ function CodeLines({ code }) {
 function App() {
   const [playgroundCode, setPlaygroundCode] = useState(playgroundSample)
   const [terminalLines, setTerminalLines] = useState([])
-  const [runOk, setRunOk] = useState(true)
+  const [terminalError, setTerminalError] = useState(false)
+  const [hasRun, setHasRun] = useState(false)
   const [playCopied, setPlayCopied] = useState(false)
   const copyTimeoutRef = useRef(null)
+  const lineColumnRef = useRef(null)
+  const highlightRef = useRef(null)
 
+  const playgroundLines = useMemo(() => playgroundCode.split('\n'), [playgroundCode])
   const lineNumbers = useMemo(() => {
-    const count = Math.max(playgroundCode.split('\n').length, 1)
+    const count = Math.max(playgroundLines.length, 1)
     return Array.from({ length: count }, (_, idx) => idx + 1)
-  }, [playgroundCode])
+  }, [playgroundLines])
 
   useEffect(
     () => () => {
@@ -286,18 +290,29 @@ function App() {
   const onClear = () => {
     setPlaygroundCode('')
     setTerminalLines([])
-    setRunOk(true)
+    setTerminalError(false)
+    setHasRun(false)
   }
 
   const onRun = () => {
+    setHasRun(true)
     const result = executeDost(playgroundCode)
     if (result.ok) {
-      const lines = result.lines.length ? result.lines.map((line) => `> ${line}`) : ['> (no output)']
-      setTerminalLines(['Shandaar Dost 🎉', ...lines])
-      setRunOk(true)
+      const lines = result.lines.length ? result.lines.map((line) => `> ${line}`) : []
+      setTerminalLines(lines)
+      setTerminalError(false)
     } else {
-      setTerminalLines(['Arre yaar, error aa gaya', `> ${result.lines[0]}`])
-      setRunOk(false)
+      setTerminalLines([`> ${result.lines[0]}`])
+      setTerminalError(true)
+    }
+  }
+
+  const onEditorScroll = (event) => {
+    const { scrollTop, scrollLeft } = event.currentTarget
+    if (lineColumnRef.current) lineColumnRef.current.scrollTop = scrollTop
+    if (highlightRef.current) {
+      highlightRef.current.scrollTop = scrollTop
+      highlightRef.current.scrollLeft = scrollLeft
     }
   }
 
@@ -332,7 +347,7 @@ function App() {
         </div>
       </section>
 
-      <section className="playground-section" id="playground">
+      <section className="playground-section full-width" id="playground">
         <div className="section-head">
           <h2>Playground</h2>
           <div className="section-actions">
@@ -357,35 +372,50 @@ function App() {
           {playCopied ? <span className="copy-badge">Copied!</span> : null}
 
           <div className="editor-grid">
-            <pre className="line-column" aria-hidden="true">
+            <pre className="line-column" aria-hidden="true" ref={lineColumnRef}>
               {lineNumbers.map((num) => (
                 <span key={`line-${num}`}>{num}</span>
               ))}
             </pre>
 
-            <textarea
-              className="editor-input"
-              value={playgroundCode}
-              onChange={(event) => setPlaygroundCode(event.target.value)}
-              spellCheck={false}
-            />
+            <div className="editor-stack">
+              <pre className="editor-highlight" aria-hidden="true" ref={highlightRef}>
+                {playgroundLines.map((line, idx) => (
+                  <div className="code-row" key={`play-line-${idx}`}>
+                    {highlightLine(line)}
+                  </div>
+                ))}
+              </pre>
+
+              <textarea
+                className="editor-input"
+                value={playgroundCode}
+                onChange={(event) => setPlaygroundCode(event.target.value)}
+                onScroll={onEditorScroll}
+                spellCheck={false}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="terminal-shell">
-          {terminalLines.length ? (
-            terminalLines.map((line, idx) => (
-              <div
-                key={`term-${idx}`}
-                className={`terminal-line ${idx === 0 ? (runOk ? 'success' : 'error') : ''}`}
-              >
-                {line}
+        {hasRun ? (
+          <div className="terminal-shell">
+            {terminalLines.length ? (
+              <>
+                {!terminalError ? <div className="terminal-line success">Shandaar dost 🎉</div> : null}
+                {terminalLines.map((line, idx) => (
+                  <div key={`term-${idx}`} className={`terminal-line ${terminalError ? 'error' : ''}`}>
+                    {line}
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="terminal-line muted">
+                {playgroundCode.trim() ? 'Run to see output...' : 'Write code to see output...'}
               </div>
-            ))
-          ) : (
-            <div className="terminal-line muted">Run to see output...</div>
-          )}
-        </div>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <section className="docs-section">
