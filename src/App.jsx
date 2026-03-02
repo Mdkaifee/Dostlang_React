@@ -293,7 +293,7 @@ function App() {
     const result = executeDost(playgroundCode)
     if (result.ok) {
       const lines = result.lines.length ? result.lines.map((line) => `> ${line}`) : ['> (no output)']
-      setTerminalLines(['Shandaar bhai 🎉', ...lines])
+      setTerminalLines(['Shandaar Dost 🎉', ...lines])
       setRunOk(true)
     } else {
       setTerminalLines(['Arre yaar, error aa gaya', `> ${result.lines[0]}`])
