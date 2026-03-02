@@ -152,7 +152,25 @@ body {
   min-height: 510px;
 }
 
-.copy-btn {
+.empty-code {
+  min-height: 510px;
+  display: grid;
+  place-items: center;
+  color: #afacbc;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.code-wrap {
+  position: relative;
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  min-height: 510px;
+}
+
+.copy-fab {
   position: absolute;
   top: 0.9rem;
   right: 0.84rem;
@@ -165,14 +183,42 @@ body {
   background: transparent;
   font-size: 1.18rem;
   cursor: pointer;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 140ms ease, transform 140ms ease, border-color 140ms ease;
 }
 
-.empty-code {
-  min-height: 510px;
-  display: grid;
-  place-items: center;
-  color: #afacbc;
-  font-family: 'JetBrains Mono', monospace;
+.copy-badge {
+  position: absolute;
+  top: 1.12rem;
+  right: 3.7rem;
+  z-index: 3;
+  background: #5f6168;
+  color: #fff;
+  border-radius: 0.35rem;
+  font-size: 0.8rem;
+  padding: 0.18rem 0.4rem;
+  opacity: 0;
+  transform: translateY(-2px);
+  animation: badge-in 140ms ease forwards;
+}
+
+@keyframes badge-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.code-wrap:hover .copy-fab,
+.copy-fab.copied {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.copy-fab.copied {
+  color: #fff;
+  border-color: #ece9ef;
 }
 
 .code-grid.with-lines {
@@ -193,6 +239,20 @@ body {
 
 .line-column span {
   display: block;
+}
+
+.editor-input {
+  width: 100%;
+  min-height: 510px;
+  border: 0;
+  outline: none;
+  resize: vertical;
+  background: var(--panel);
+  color: #f1eff4;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  line-height: 1.62;
+  padding: 0.7rem 1rem;
 }
 
 .code-panel {
@@ -232,6 +292,34 @@ body {
 .tok-punc,
 .tok-plain {
   color: #e8e7ee;
+}
+
+.terminal-shell {
+  margin-top: 1.1rem;
+  background: #050505;
+  border: 1px solid #111;
+  min-height: 220px;
+  padding: 1rem 1.15rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.06rem;
+  overflow: auto;
+}
+
+.terminal-line {
+  line-height: 1.55;
+  color: #f8f8f8;
+}
+
+.terminal-line.success {
+  color: #00af61;
+}
+
+.terminal-line.error {
+  color: #ff7a7a;
+}
+
+.terminal-line.muted {
+  color: #9296a6;
 }
 
 .docs-section {
@@ -309,6 +397,10 @@ body {
 
   .docs-grid {
     grid-template-columns: 1fr;
+  }
+
+  .editor-grid {
+    grid-template-columns: 48px 1fr;
   }
 
   .code-grid.with-lines {

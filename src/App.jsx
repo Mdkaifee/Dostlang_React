@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const playgroundSample = `yeh_ha a = 3
 yeh_ha b = 0
@@ -69,6 +69,111 @@ function InlineTag({ children }) {
   return <code className="inline-tag">{children}</code>
 }
 
+function stripInlineComment(line) {
+  let quote = null
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i]
+    if ((ch === '"' || ch === "'") && line[i - 1] !== '\\') {
+      if (quote === ch) quote = null
+      else if (!quote) quote = ch
+    }
+    if (ch === '#' && !quote) return line.slice(0, i)
+  }
+  return line
+}
+
+function stripSemicolon(value) {
+  return value.trim().replace(/;$/, '').trim()
+}
+
+function adaptExpr(expr) {
+  return expr
+    .replace(/\bsach\b/g, 'true')
+    .replace(/\bjhoot\b/g, 'false')
+    .replace(/\baur\b/g, '&&')
+    .replace(/\bya\b/g, '||')
+    .replace(/\bnahi\b/g, '!')
+}
+
+function compileToJs(code) {
+  const lines = code.split('\n')
+  let guardCounter = 0
+
+  return lines
+    .map((raw) => stripInlineComment(raw).replace(/\s+$/, ''))
+    .map((line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return ''
+
+      const indent = line.slice(0, line.length - trimmed.length)
+
+      const chainedElseIf = trimmed.match(/^}\s*agar\s+(.+)\s*{$/)
+      if (chainedElseIf) {
+        return `${indent}} else if (${adaptExpr(stripSemicolon(chainedElseIf[1]))}) {`
+      }
+
+      if (/^}\s*warna\s*{$/.test(trimmed)) {
+        return `${indent}} else {`
+      }
+
+      if (trimmed === '{' || trimmed === '}') {
+        return `${indent}${trimmed}`
+      }
+
+      if (/^warna\s*{$/.test(trimmed)) {
+        return `${indent}else {`
+      }
+
+      const ifMatch = trimmed.match(/^agar\s+(.+)\s*{$/)
+      if (ifMatch) {
+        return `${indent}if (${adaptExpr(stripSemicolon(ifMatch[1]))}) {`
+      }
+
+      const whileMatch = trimmed.match(/^jabtak\s+(.+)\s*{$/)
+      if (whileMatch) {
+        guardCounter += 1
+        const cond = adaptExpr(stripSemicolon(whileMatch[1]))
+        return `${indent}for (let __loopGuard${guardCounter} = 0; __loopGuard${guardCounter} < 10000 && (${cond}); __loopGuard${guardCounter}++) {`
+      }
+
+      const declare = trimmed.match(/^yeh_ha\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/)
+      if (declare) {
+        return `${indent}let ${declare[1]} = ${adaptExpr(stripSemicolon(declare[2]))};`
+      }
+
+      const print = trimmed.match(/^dost_bol\s+(.+)$/)
+      if (print) {
+        return `${indent}__out.push(${adaptExpr(stripSemicolon(print[1]))});`
+      }
+
+      const assign = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/)
+      if (assign) {
+        return `${indent}${assign[1]} = ${adaptExpr(stripSemicolon(assign[2]))};`
+      }
+
+      return `${indent}${adaptExpr(stripSemicolon(trimmed))};`
+    })
+    .join('\n')
+}
+
+function executeDost(code) {
+  const jsCode = compileToJs(code)
+
+  try {
+    const runner = new Function(`"use strict"; const __out = []; ${jsCode}; return __out;`)
+    const output = runner()
+    return {
+      ok: true,
+      lines: output.map((item) => String(item)),
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      lines: [String(error?.message || error)],
+    }
+  }
+}
+
 function highlightLine(line) {
   const commentIdx = line.indexOf('#')
   const codePart = commentIdx >= 0 ? line.slice(0, commentIdx) : line
@@ -105,44 +210,96 @@ function highlightLine(line) {
   )
 }
 
-function CodeLines({ code, withNumbers = false }) {
+function CodeLines({ code }) {
+  const [copied, setCopied] = useState(false)
+  const timeoutRef = useRef(null)
   const lines = code.split('\n')
 
+  useEffect(
+    () => () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    },
+    [],
+  )
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      timeoutRef.current = setTimeout(() => setCopied(false), 1300)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   return (
-    <div className={`code-grid ${withNumbers ? 'with-lines' : ''}`}>
-      {withNumbers ? (
-        <pre className="line-column" aria-hidden="true">
-          {lines.map((_, index) => (
-            <span key={`ln-${index + 1}`}>{index + 1}</span>
+    <div className="code-wrap">
+      <button className={`copy-fab ${copied ? 'copied' : ''}`} type="button" onClick={onCopy} aria-label="Copy code">
+        {copied ? '✓' : '⧉'}
+      </button>
+      {copied ? <span className="copy-badge">Copied!</span> : null}
+
+      <div className="code-grid">
+        <pre className="code-panel">
+          {lines.map((line, index) => (
+            <div className="code-row" key={`line-${index}`}>
+              {highlightLine(line)}
+            </div>
           ))}
         </pre>
-      ) : null}
-      <pre className="code-panel">
-        {lines.map((line, index) => (
-          <div className="code-row" key={`line-${index}`}>
-            {highlightLine(line)}
-          </div>
-        ))}
-      </pre>
+      </div>
     </div>
   )
 }
 
 function App() {
   const [playgroundCode, setPlaygroundCode] = useState(playgroundSample)
-  const lineCountMemo = useMemo(() => playgroundCode.split('\n').length, [playgroundCode])
+  const [terminalLines, setTerminalLines] = useState([])
+  const [runOk, setRunOk] = useState(true)
+  const [playCopied, setPlayCopied] = useState(false)
+  const copyTimeoutRef = useRef(null)
 
-  const onClear = () => setPlaygroundCode('')
-  const onRun = () => setPlaygroundCode((prev) => prev)
-  const onCopy = async () => {
+  const lineNumbers = useMemo(() => {
+    const count = Math.max(playgroundCode.split('\n').length, 1)
+    return Array.from({ length: count }, (_, idx) => idx + 1)
+  }, [playgroundCode])
+
+  useEffect(
+    () => () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+    },
+    [],
+  )
+
+  const onCopyPlayground = async () => {
     try {
       await navigator.clipboard.writeText(playgroundCode)
+      setPlayCopied(true)
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current)
+      copyTimeoutRef.current = setTimeout(() => setPlayCopied(false), 1300)
     } catch {
-      // Clipboard is optional.
+      setPlayCopied(false)
     }
   }
 
-  const hasCode = lineCountMemo > 0
+  const onClear = () => {
+    setPlaygroundCode('')
+    setTerminalLines([])
+    setRunOk(true)
+  }
+
+  const onRun = () => {
+    const result = executeDost(playgroundCode)
+    if (result.ok) {
+      const lines = result.lines.length ? result.lines.map((line) => `> ${line}`) : ['> (no output)']
+      setTerminalLines(['Shandaar bhai 🎉', ...lines])
+      setRunOk(true)
+    } else {
+      setTerminalLines(['Arre yaar, error aa gaya', `> ${result.lines[0]}`])
+      setRunOk(false)
+    }
+  }
 
   return (
     <main className="page-shell">
@@ -188,11 +345,46 @@ function App() {
           </div>
         </div>
 
-        <div className="playground-editor-wrap">
-          <button className="copy-btn" onClick={onCopy} type="button" aria-label="Copy code">
-            ⧉
+        <div className="playground-editor-wrap code-wrap">
+          <button
+            className={`copy-fab ${playCopied ? 'copied' : ''}`}
+            onClick={onCopyPlayground}
+            type="button"
+            aria-label="Copy playground code"
+          >
+            {playCopied ? '✓' : '⧉'}
           </button>
-          {hasCode ? <CodeLines code={playgroundCode} withNumbers /> : <div className="empty-code">No code</div>}
+          {playCopied ? <span className="copy-badge">Copied!</span> : null}
+
+          <div className="editor-grid">
+            <pre className="line-column" aria-hidden="true">
+              {lineNumbers.map((num) => (
+                <span key={`line-${num}`}>{num}</span>
+              ))}
+            </pre>
+
+            <textarea
+              className="editor-input"
+              value={playgroundCode}
+              onChange={(event) => setPlaygroundCode(event.target.value)}
+              spellCheck={false}
+            />
+          </div>
+        </div>
+
+        <div className="terminal-shell">
+          {terminalLines.length ? (
+            terminalLines.map((line, idx) => (
+              <div
+                key={`term-${idx}`}
+                className={`terminal-line ${idx === 0 ? (runOk ? 'success' : 'error') : ''}`}
+              >
+                {line}
+              </div>
+            ))
+          ) : (
+            <div className="terminal-line muted">Run to see output...</div>
+          )}
         </div>
       </section>
 
