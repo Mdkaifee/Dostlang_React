@@ -1,6 +1,6 @@
 # DostLang React Website
 
-React + Vite website styled like the provided BhaiLang reference, customized for DostLang.
+React + Vite website customized for DostLang syntax and branding.
 
 ## Brand details used
 - Name: Md Kaifee

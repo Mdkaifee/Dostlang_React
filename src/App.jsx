@@ -1,117 +1,79 @@
 import { useMemo, useState } from 'react'
 
-const playgroundSample = `hi bhai
-  bol bhai "Hello World";
+const playgroundSample = `yeh_ha a = 3
+yeh_ha b = 0
 
-  bhai ye hai a = 3;
-  bhai ye hai b = 0;
+jabtak b < 5 {
+  dost_bol b
 
-  jab tak bhai (b < 5) {
-    bol bhai b;
-
-    agar bhai (b == a) {
-      bol bhai "b is equal to a";
-    } nahi to bhai (b == 0) {
-      bol bhai "b is equal to zero";
+  agar b == a {
+    dost_bol "b is equal to a"
+  } warna {
+    agar b == 0 {
+      dost_bol "b is equal to zero"
     }
-
-    b += 1;
   }
 
-bye bhai`
+  b = b + 1
+}`
 
 const docBlocks = {
-  general: `This will be ignored
+  general: `# this will be ignored as comment
 
-hi bhai
-  // Write code here
-bye bhai
-
-This too`,
-  variables: `hi bhai
-  bhai ye hai a = 10;
-  bhai ye hai b = "two";
-  bhai ye hai c = 15;
-  a = a + 1;
-  b = 21;
-  c *= 2;
-bye bhai`,
-  types: `hi bhai
-  bhai ye hai a = 10;
-  bhai ye hai b = 10 + (15*20);
-  bhai ye hai c = "two";
-  bhai ye hai d = 'ok';
-  bhai ye hai e = nalla;
-  bhai ye hai f = sahi;
-  bhai ye hai g = galat;
-bye bhai`,
-  builtins: `hi bhai
-  bol bhai "Hello World";
-  bhai ye hai a = 10;
-  {
-    bhai ye hai b = 20;
-    bol bhai a + b;
+yeh_ha msg = "DostLang"
+dost_bol msg`,
+  variables: `yeh_ha a = 10
+yeh_ha b = 20
+a = a + 1
+b = b * 2
+dost_bol a
+dost_bol b`,
+  types: `yeh_ha num = 10
+yeh_ha text = "two"
+yeh_ha ok = sach
+yeh_ha fail = jhoot
+dost_bol num
+dost_bol text
+dost_bol ok
+dost_bol fail`,
+  builtins: `yeh_ha a = 10
+yeh_ha b = 20
+dost_bol "Hello World"
+dost_bol a + b
+dost_bol a == b`,
+  conditionals: `yeh_ha a = 10
+agar a < 20 {
+  dost_bol "a is less than 20"
+} warna {
+  agar a < 25 {
+    dost_bol "a is less than 25"
+  } warna {
+    dost_bol "a is greater than or equal to 25"
   }
-  bol bhai 5, 'ok', nalla , sahi , galat;
-bye bhai`,
-  conditionals: `hi bhai
-  bhai ye hai a = 10;
-  agar bhai (a < 20) {
-    bol bhai "a is less than 20";
-  } nahi to bhai ( a < 25 ) {
-    bol bhai "a is less than 25";
-  } warna bhai {
-    bol bhai "a is greater than or equal to 25";
+}`,
+  loops: `yeh_ha a = 0
+jabtak a < 6 {
+  a = a + 1
+  agar a == 5 {
+    dost_bol "special"
+  } warna {
+    dost_bol a
   }
-bye bhai`,
-  loops: `hi bhai
-  bhai ye hai a = 0;
-  jab tak bhai (a < 10) {
-    a += 1;
-    agar bhai (a == 5) {
-      bol bhai "andar se bol bhai ", a;
-      agla dekh bhai;
-    }
-    agar bhai (a == 6) {
-      bas kar bhai;
-    }
-    bol bhai a;
-  }
-  bol bhai "done";
-bye bhai`,
+}
+dost_bol "done"`,
 }
 
-const keywordSet = new Set([
-  'hi',
-  'bhai',
-  'bol',
-  'ye',
-  'hai',
-  'jab',
-  'tak',
-  'agar',
-  'nahi',
-  'to',
-  'warna',
-  'bye',
-  'nalla',
-  'sahi',
-  'galat',
-  'bas',
-  'kar',
-  'agla',
-  'dekh',
-])
+const keywordSet = new Set(['dost_bol', 'yeh_ha', 'agar', 'warna', 'jabtak', 'sach', 'jhoot', 'aur', 'ya', 'nahi'])
 
 function InlineTag({ children }) {
   return <code className="inline-tag">{children}</code>
 }
 
 function highlightLine(line) {
-  const commentIdx = line.indexOf('//')
+  const commentIdx = line.indexOf('#')
   const codePart = commentIdx >= 0 ? line.slice(0, commentIdx) : line
   const commentPart = commentIdx >= 0 ? line.slice(commentIdx) : ''
-  const tokenRegex = /("[^"]*"|'[^']*'|==|!=|<=|>=|\+=|-=|\*=|\/=|[{}();,]|[+\-*/=<>]|\b[a-zA-Z_][a-zA-Z0-9_]*\b|\d+)/g
+  const tokenRegex = /("[^"]*"|==|!=|<=|>=|\+=|-=|\*=|\/=|[{}();,]|[+\-*/=<>]|\b[a-zA-Z_][a-zA-Z0-9_]*\b|\d+)/g
   const pieces = codePart.split(tokenRegex)
 
   return (
@@ -120,7 +82,7 @@ function highlightLine(line) {
         if (!piece) return null
 
         let cls = 'tok-plain'
-        if (/^"[^"]*"$|^'[^']*'$/.test(piece)) {
+        if (/^"[^"]*"$/.test(piece)) {
           cls = 'tok-string'
         } else if (/^\d+$/.test(piece)) {
           cls = 'tok-number'
@@ -168,7 +130,6 @@ function CodeLines({ code, withNumbers = false }) {
 
 function App() {
   const [playgroundCode, setPlaygroundCode] = useState(playgroundSample)
-
   const lineCountMemo = useMemo(() => playgroundCode.split('\n').length, [playgroundCode])
 
   const onClear = () => setPlaygroundCode('')
@@ -238,15 +199,14 @@ function App() {
       <section className="docs-section">
         <h2>Documentation</h2>
         <p className="docs-intro">
-          Bhailang is dynamically typed toy programming language, based on an inside joke, written in Typescript.
+          DostLang is a dynamically typed toy programming language written in Python.
         </p>
 
         <div className="docs-grid">
           <article className="doc-card">
             <h3>General</h3>
             <p>
-              <InlineTag>hi bhai</InlineTag> is the entrypoint for the program and all program must end with{' '}
-              <InlineTag>bye bhai</InlineTag>. Anything outside of it will be ignored.
+              Comments start with <InlineTag>#</InlineTag>. Print values using <InlineTag>dost_bol</InlineTag>.
             </p>
             <CodeLines code={docBlocks.general} />
           </article>
@@ -254,7 +214,7 @@ function App() {
           <article className="doc-card">
             <h3>Variables</h3>
             <p>
-              Variables can be declared using <InlineTag>bhai ye hai</InlineTag>.
+              Declare variables using <InlineTag>yeh_ha</InlineTag>, then reassign with <InlineTag>=</InlineTag>.
             </p>
             <CodeLines code={docBlocks.variables} />
           </article>
@@ -262,8 +222,7 @@ function App() {
           <article className="doc-card">
             <h3>Types</h3>
             <p>
-              Numbers and strings are like other languages. Null values can be denoted using <InlineTag>nalla</InlineTag>.{' '}
-              <InlineTag>sahi</InlineTag> and <InlineTag>galat</InlineTag> are the boolean values.
+              Supports numbers, strings, and booleans via <InlineTag>sach</InlineTag> and <InlineTag>jhoot</InlineTag>.
             </p>
             <CodeLines code={docBlocks.types} />
           </article>
@@ -271,7 +230,7 @@ function App() {
           <article className="doc-card">
             <h3>Built-ins</h3>
             <p>
-              Use <InlineTag>bol bhai</InlineTag> to print anything to console.
+              Use <InlineTag>dost_bol</InlineTag> to print expressions and values.
             </p>
             <CodeLines code={docBlocks.builtins} />
           </article>
@@ -279,10 +238,7 @@ function App() {
           <article className="doc-card">
             <h3>Conditionals</h3>
             <p>
-              Bhailang supports if-else-if ladder construct , <InlineTag>agar bhai</InlineTag> block will execute if condition is{' '}
-              <InlineTag>sahi</InlineTag>, otherwise one of the subsequently added <InlineTag>nahi to bhai</InlineTag> blocks will
-              execute if their respective condition is <InlineTag>sahi</InlineTag>, and the <InlineTag>warna bhai</InlineTag> block
-              will eventually execute if all of the above conditions are <InlineTag>galat</InlineTag>.
+              Use <InlineTag>agar</InlineTag> for if and <InlineTag>warna</InlineTag> for else blocks.
             </p>
             <CodeLines code={docBlocks.conditionals} />
           </article>
@@ -290,10 +246,7 @@ function App() {
           <article className="doc-card">
             <h3>Loops</h3>
             <p>
-              Statements inside <InlineTag>jab tak bhai</InlineTag> blocks are executed as long as a specified condition evaluates to{' '}
-              <InlineTag>sahi</InlineTag>. If the condition becomes <InlineTag>galat</InlineTag>, statement within the loop stops
-              executing and control passes to the statement following the loop. Use <InlineTag>bas kar bhai</InlineTag> to break the
-              loop and <InlineTag>agla dekh bhai</InlineTag> to continue within loop.
+              Repeat statements using <InlineTag>jabtak</InlineTag> while a condition remains true.
             </p>
             <CodeLines code={docBlocks.loops} />
           </article>
